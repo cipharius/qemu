@@ -384,6 +384,12 @@ cfi="false"
 
 # 4. Detection partly done in configure
 xen=${default_feature:+disabled}
+gettext="auto"
+fuse="auto"
+fuse_lseek="auto"
+multiprocess="no"
+malloc_trim="auto"
+arcan="auto"
 
 # parse CC options second
 for opt do
@@ -1194,6 +1200,10 @@ for opt do
   ;;
   --enable-jemalloc) meson_option_parse --enable-malloc=jemalloc jemalloc
   ;;
+  --disable-arcan) arcan="no"
+  ;;
+  --enable-arcan) arcan="yes"
+  ;;
   # everything else has the same name in configure and meson
   --enable-* | --disable-*) meson_option_parse "$opt" "$optarg"
   ;;
@@ -1470,6 +1480,11 @@ cat << EOF
   rng-none        dummy RNG, avoid using /dev/(u)random and getrandom()
   gio             libgio support
   slirp-smbd      use smbd (at path --smbd=*) in slirp networking
+  libdaxctl       libdaxctl support
+  fuse            FUSE block device export
+  fuse-lseek      SEEK_HOLE/SEEK_DATA support for FUSE exports
+  multiprocess    Multiprocess QEMU support
+  arcan           Arcan UI support
 
 NOTE: The object files are built at the place where configure is launched
 EOF
@@ -2602,7 +2617,40 @@ case "$fdt" in
 esac
 
 ##########################################
-# opengl probe (for sdl2, gtk)
+# arcan shmif probe
+
+if $pkg_config arcan-shmif --exists; then
+ if test "$opengl" = "no" ; then
+  arcanconfig="$pkg_config arcan-shmif"
+ else
+  arcanconfig="$pkg_config arcan-shmif-ext"
+ fi
+ arcan="yes"
+else
+ if test "$arcan" = "yes"; then
+  feature_not_found "arcan" "Install arcan-shmif-dev"
+ fi
+ arcan="no"
+fi
+
+if test "$arcan" != "no" ; then
+  arcan_cflags=`$arcanconfig --cflags 2> /dev/null`
+  if test "$static" = "yes" ; then
+    arcan_libs=`$arcanconfig --static-libs 2>/dev/null`
+  else
+    arcan_libs=`$arcanconfig --libs 2> /dev/null`
+  fi
+fi
+
+##########################################
+# opengl probe (for sdl2, gtk, milkymist-tmu2)
+
+gbm="no"
+if $pkg_config gbm; then
+    gbm_cflags="$($pkg_config --cflags gbm)"
+    gbm_libs="$($pkg_config --libs gbm)"
+    gbm="yes"
+fi
 
 if test "$opengl" != "no" ; then
   epoxy=no
@@ -3578,6 +3626,12 @@ if test "$opengl" = "yes" ; then
   echo "CONFIG_OPENGL=y" >> $config_host_mak
   echo "OPENGL_CFLAGS=$opengl_cflags" >> $config_host_mak
   echo "OPENGL_LIBS=$opengl_libs" >> $config_host_mak
+fi
+
+if test "$arcan" = "yes" ; then
+    echo "CONFIG_ARCAN=y" >> $config_host_mak
+    echo "ARCAN_LIBS=$arcan_libs" >> $config_host_mak
+    echo "ARCAN_CFLAGS=$arcan_cflags" >> $config_host_mak
 fi
 
 if test "$avx2_opt" = "yes" ; then

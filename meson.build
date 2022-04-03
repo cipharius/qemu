@@ -583,6 +583,16 @@ if not get_option('zstd').auto() or have_block
                     required: get_option('zstd'),
                     method: 'pkg-config', kwargs: static_kwargs)
 endif
+gbm = not_found
+if 'CONFIG_GBM' in config_host
+  gbm = declare_dependency(compile_args: config_host['GBM_CFLAGS'].split(),
+                           link_args: config_host['GBM_LIBS'].split())
+endif
+arcan = not_found
+if 'CONFIG_ARCAN' in config_host
+  arcan = declare_dependency(compile_args: config_host['ARCAN_CFLAGS'].split(),
+                           link_args: config_host['ARCAN_LIBS'].split())
+endif
 virgl = not_found
 if not get_option('virglrenderer').auto() or have_system
   virgl = dependency('virglrenderer',
@@ -3394,6 +3404,7 @@ if targetos == 'linux'
   summary_info += {'ALSA support':    alsa}
   summary_info += {'PulseAudio support': pulse}
 endif
+summary_info += {'Arcan support':     arcan.found()}
 summary_info += {'JACK support':      jack}
 summary_info += {'brlapi support':    brlapi}
 summary_info += {'vde support':       vde}

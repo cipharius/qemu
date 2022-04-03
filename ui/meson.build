@@ -89,7 +89,15 @@ if sdl.found()
   ui_modules += {'sdl' : sdl_ss}
 endif
 
-if spice.found()
+if config_host.has_key('CONFIG_ARCAN')
+  arcan_ss = ss.source_set()
+  arcan_ss.add(arcan, pixman, files(
+    'arcan.c'
+  ))
+  ui_modules += {'arcan' : arcan_ss}
+endif
+
+if spice.found() and config_host.has_key('CONFIG_SPICE')
   spice_core_ss = ss.source_set()
   spice_core_ss.add(spice, pixman, files(
     'spice-core.c',

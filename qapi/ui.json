@@ -1158,11 +1158,13 @@
 # Display (user interface) type.
 #
 # @default: The default user interface, selecting from the first available
-#           of gtk, sdl, cocoa, and vnc.
+#           of arcan, gtk, sdl, cocoa, and vnc.
 #
 # @none: No user interface or video output display. The guest will
 #        still see an emulated graphics card, but its output will not
 #        be displayed to the QEMU user.
+#
+# @arcan: The Arcan user interface.
 #
 # @gtk: The GTK user interface.
 #
@@ -1199,7 +1201,8 @@
               'if': { 'all': ['CONFIG_OPENGL', 'CONFIG_GBM'] } },
     { 'name': 'curses', 'if': 'CONFIG_CURSES' },
     { 'name': 'cocoa', 'if': 'CONFIG_COCOA' },
-    { 'name': 'spice-app', 'if': 'CONFIG_SPICE'} ] }
+    { 'name': 'spice-app', 'if': 'CONFIG_SPICE'},
+    { 'name': 'arcan', 'if': 'CONFIG_ARCAN'}] }
 
 ##
 # @DisplayOptions:
