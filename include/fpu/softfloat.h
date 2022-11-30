@@ -95,12 +95,13 @@ typedef enum {
 
 #include "fpu/softfloat-types.h"
 #include "fpu/softfloat-helpers.h"
+#include "qemu/int128.h"
 
 /*----------------------------------------------------------------------------
 | Routine to raise any or all of the software IEC/IEEE floating-point
 | exception flags.
 *----------------------------------------------------------------------------*/
-static inline void float_raise(uint8_t flags, float_status *status)
+static inline void float_raise(uint16_t flags, float_status *status)
 {
     status->float_exception_flags |= flags;
 }
@@ -182,7 +183,9 @@ floatx80 int64_to_floatx80(int64_t, float_status *status);
 
 float128 int32_to_float128(int32_t, float_status *status);
 float128 int64_to_float128(int64_t, float_status *status);
+float128 int128_to_float128(Int128, float_status *status);
 float128 uint64_to_float128(uint64_t, float_status *status);
+float128 uint128_to_float128(Int128, float_status *status);
 
 /*----------------------------------------------------------------------------
 | Software half-precision conversion routines.
@@ -909,6 +912,18 @@ static inline bool float64_unordered_quiet(float64 a, float64 b,
 float64 float64_default_nan(float_status *status);
 
 /*----------------------------------------------------------------------------
+| Software IEC/IEEE double-precision operations, rounding to single precision,
+| returning a result in double precision, with only one rounding step.
+*----------------------------------------------------------------------------*/
+
+float64 float64r32_add(float64, float64, float_status *status);
+float64 float64r32_sub(float64, float64, float_status *status);
+float64 float64r32_mul(float64, float64, float_status *status);
+float64 float64r32_div(float64, float64, float_status *status);
+float64 float64r32_muladd(float64, float64, float64, int, float_status *status);
+float64 float64r32_sqrt(float64, float_status *status);
+
+/*----------------------------------------------------------------------------
 | Software IEC/IEEE extended double-precision conversion routines.
 *----------------------------------------------------------------------------*/
 int32_t floatx80_to_int32(floatx80, float_status *status);
@@ -1189,9 +1204,13 @@ floatx80 floatx80_default_nan(float_status *status);
 int32_t float128_to_int32(float128, float_status *status);
 int32_t float128_to_int32_round_to_zero(float128, float_status *status);
 int64_t float128_to_int64(float128, float_status *status);
+Int128 float128_to_int128(float128, float_status *status);
 int64_t float128_to_int64_round_to_zero(float128, float_status *status);
+Int128 float128_to_int128_round_to_zero(float128, float_status *status);
 uint64_t float128_to_uint64(float128, float_status *status);
+Int128 float128_to_uint128(float128, float_status *status);
 uint64_t float128_to_uint64_round_to_zero(float128, float_status *status);
+Int128 float128_to_uint128_round_to_zero(float128, float_status *status);
 uint32_t float128_to_uint32(float128, float_status *status);
 uint32_t float128_to_uint32_round_to_zero(float128, float_status *status);
 float32 float128_to_float32(float128, float_status *status);

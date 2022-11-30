@@ -64,9 +64,7 @@ static abi_ulong get_sigframe(struct target_sigaction *ka,
 
     /* This is the X/Open sanctioned signal stack switching.  */
     sp = target_sigsp(sp, ka) - framesize;
-
-    /* XXX: kernel aligns with 0xf ? */
-    sp &= ~3UL; /* align sp on 4-byte boundary */
+    sp &= ~0xf;
 
     return sp;
 }
@@ -188,7 +186,7 @@ long do_rt_sigreturn(CPURISCVState *env)
     target_restore_altstack(&frame->uc.uc_stack, env);
 
     unlock_user_struct(frame, frame_addr, 0);
-    return -TARGET_QEMU_ESIGRETURN;
+    return -QEMU_ESIGRETURN;
 
 badframe:
     unlock_user_struct(frame, frame_addr, 0);

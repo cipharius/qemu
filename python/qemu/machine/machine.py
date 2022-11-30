@@ -40,19 +40,14 @@ from typing import (
     TypeVar,
 )
 
-from qemu.qmp import (  # pylint: disable=import-error
+from qemu.qmp import SocketAddrT
+from qemu.qmp.legacy import (
+    QEMUMonitorProtocol,
     QMPMessage,
     QMPReturnValue,
-    SocketAddrT,
 )
 
 from . import console_socket
-
-
-if os.environ.get('QEMU_PYTHON_LEGACY_QMP'):
-    from qemu.qmp import QEMUMonitorProtocol
-else:
-    from qemu.aqmp.legacy import QEMUMonitorProtocol
 
 
 LOG = logging.getLogger(__name__)
@@ -72,6 +67,35 @@ class QEMUMachineAddDeviceError(QEMUMachineError):
     requests on the QEMUMachine methods.  This exception does not represent
     failures reported by the QEMU binary itself.
     """
+
+
+class VMLaunchFailure(QEMUMachineError):
+    """
+    Exception raised when a VM launch was attempted, but failed.
+    """
+    def __init__(self, exitcode: Optional[int],
+                 command: str, output: Optional[str]):
+        super().__init__(exitcode, command, output)
+        self.exitcode = exitcode
+        self.command = command
+        self.output = output
+
+    def __str__(self) -> str:
+        ret = ''
+        if self.__cause__ is not None:
+            name = type(self.__cause__).__name__
+            reason = str(self.__cause__)
+            if reason:
+                ret += f"{name}: {reason}"
+            else:
+                ret += f"{name}"
+        ret += '\n'
+
+        if self.exitcode is not None:
+            ret += f"\tExit code: {self.exitcode}\n"
+        ret += f"\tCommand: {self.command}\n"
+        ret += f"\tOutput: {self.output}\n"
+        return ret
 
 
 class AbnormalShutdown(QEMUMachineError):
@@ -397,7 +421,7 @@ class QEMUMachine:
 
         try:
             self._launch()
-        except:
+        except BaseException as exc:
             # We may have launched the process but it may
             # have exited before we could connect via QMP.
             # Assume the VM didn't launch or is exiting.
@@ -408,11 +432,15 @@ class QEMUMachine:
             else:
                 self._post_shutdown()
 
-            LOG.debug('Error launching VM')
-            if self._qemu_full_args:
-                LOG.debug('Command: %r', ' '.join(self._qemu_full_args))
-            if self._iolog:
-                LOG.debug('Output: %r', self._iolog)
+            if isinstance(exc, Exception):
+                raise VMLaunchFailure(
+                    exitcode=self.exitcode(),
+                    command=' '.join(self._qemu_full_args),
+                    output=self._iolog
+                ) from exc
+
+            # Don't wrap 'BaseException'; doing so would downgrade
+            # that exception. However, we still want to clean up.
             raise
 
     def _launch(self) -> None:
@@ -467,7 +495,7 @@ class QEMUMachine:
         """
         # If we keep the console socket open, we may deadlock waiting
         # for QEMU to exit, while QEMU is waiting for the socket to
-        # become writeable.
+        # become writable.
         if self._console_socket is not None:
             self._console_socket.close()
             self._console_socket = None
@@ -710,8 +738,9 @@ class QEMUMachine:
         :param timeout: Optional timeout, in seconds.
                         See QEMUMonitorProtocol.pull_event.
 
-        :raise QMPTimeoutError: If timeout was non-zero and no matching events
-                                were found.
+        :raise asyncio.TimeoutError:
+            If timeout was non-zero and no matching events were found.
+
         :return: A QMP event matching the filter criteria.
                  If timeout was 0 and no event matched, None.
         """
@@ -734,7 +763,7 @@ class QEMUMachine:
             event = self._qmp.pull_event(wait=timeout)
             if event is None:
                 # NB: None is only returned when timeout is false-ish.
-                # Timeouts raise QMPTimeoutError instead!
+                # Timeouts raise asyncio.TimeoutError instead!
                 break
             if _match(event):
                 return event

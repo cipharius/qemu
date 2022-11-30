@@ -27,6 +27,7 @@ or Hypervisor.Framework.
    secrets
    authz
    gdb
+   replay
    managed-startup
    bootindex
    cpu-hotplug
@@ -34,3 +35,4 @@ or Hypervisor.Framework.
    targets
    security
    multi-process
+   confidential-guest-support

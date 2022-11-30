@@ -7,8 +7,9 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-#ifndef QEMU_PLUGIN_API_H
-#define QEMU_PLUGIN_API_H
+
+#ifndef QEMU_QEMU_PLUGIN_H
+#define QEMU_QEMU_PLUGIN_H
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -590,4 +591,38 @@ void qemu_plugin_outs(const char *string);
  */
 bool qemu_plugin_bool_parse(const char *name, const char *val, bool *ret);
 
-#endif /* QEMU_PLUGIN_API_H */
+/**
+ * qemu_plugin_path_to_binary() - path to binary file being executed
+ *
+ * Return a string representing the path to the binary. For user-mode
+ * this is the main executable. For system emulation we currently
+ * return NULL. The user should g_free() the string once no longer
+ * needed.
+ */
+const char *qemu_plugin_path_to_binary(void);
+
+/**
+ * qemu_plugin_start_code() - returns start of text segment
+ *
+ * Returns the nominal start address of the main text segment in
+ * user-mode. Currently returns 0 for system emulation.
+ */
+uint64_t qemu_plugin_start_code(void);
+
+/**
+ * qemu_plugin_end_code() - returns end of text segment
+ *
+ * Returns the nominal end address of the main text segment in
+ * user-mode. Currently returns 0 for system emulation.
+ */
+uint64_t qemu_plugin_end_code(void);
+
+/**
+ * qemu_plugin_entry_code() - returns start address for module
+ *
+ * Returns the nominal entry address of the main text segment in
+ * user-mode. Currently returns 0 for system emulation.
+ */
+uint64_t qemu_plugin_entry_code(void);
+
+#endif /* QEMU_QEMU_PLUGIN_H */
