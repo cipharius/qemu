@@ -301,7 +301,6 @@ fdt="auto"
 # 2. Automatically enable/disable other options
 tcg="auto"
 cfi="false"
-arcan="auto"
 
 # parse CC options second
 for opt do
@@ -897,10 +896,6 @@ for opt do
   ;;
   --enable-jemalloc) meson_option_parse --enable-malloc=jemalloc jemalloc
   ;;
-  --disable-arcan) arcan="no"
-  ;;
-  --enable-arcan) arcan="yes"
-  ;;
   # everything else has the same name in configure and meson
   --*) meson_option_parse "$opt" "$optarg"
   ;;
@@ -1054,7 +1049,6 @@ cat << EOF
   debug-info      debugging information
   safe-stack      SafeStack Stack Smash Protection. Depends on
                   clang/llvm >= 3.7 and requires coroutine backend ucontext.
-  arcan           Arcan UI support
 
 NOTE: The object files are built at the place where configure is launched
 EOF
@@ -1551,32 +1545,6 @@ case "$fdt" in
     git_submodules="${git_submodules} dtc"
     ;;
 esac
-
-##########################################
-# arcan shmif probe
-
-if $pkg_config arcan-shmif --exists; then
- if test "$opengl" = "no" ; then
-  arcanconfig="$pkg_config arcan-shmif"
- else
-  arcanconfig="$pkg_config arcan-shmif-ext"
- fi
- arcan="yes"
-else
- if test "$arcan" = "yes"; then
-  feature_not_found "arcan" "Install arcan-shmif-dev"
- fi
- arcan="no"
-fi
-
-if test "$arcan" != "no" ; then
-  arcan_cflags=`$arcanconfig --cflags 2> /dev/null`
-  if test "$static" = "yes" ; then
-    arcan_libs=`$arcanconfig --static-libs 2>/dev/null`
-  else
-    arcan_libs=`$arcanconfig --libs 2> /dev/null`
-  fi
-fi
 
 ##########################################
 # check and set a backend for coroutine
