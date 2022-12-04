@@ -771,11 +771,7 @@ if 'CONFIG_GBM' in config_host
   gbm = declare_dependency(compile_args: config_host['GBM_CFLAGS'].split(),
                            link_args: config_host['GBM_LIBS'].split())
 endif
-arcan = not_found
-if 'CONFIG_ARCAN' in config_host
-  arcan = declare_dependency(compile_args: config_host['ARCAN_CFLAGS'].split(),
-                           link_args: config_host['ARCAN_LIBS'].split())
-endif
+
 virgl = not_found
 
 have_vhost_user_gpu = have_tools and targetos == 'linux' and pixman.found()
@@ -1286,6 +1282,18 @@ if gtkx11.found()
   x11 = dependency('x11', method: 'pkg-config', required: gtkx11.found(),
                    kwargs: static_kwargs)
 endif
+
+arcan = not_found
+if get_option('arcan').allowed()
+  if 'CONFIG_ARCAN' in config_host
+    arcan = declare_dependency(compile_args: config_host['ARCAN_CFLAGS'].split(),
+                               link_args: config_host['ARCAN_LIBS'].split())
+  else
+    arcan = dependency('arcan-shmif-ext', required: get_option('arcan'),
+                       method: 'pkg-config', kwargs: static_kwargs)
+  endif
+endif
+
 png = not_found
 if get_option('png').allowed() and have_system
    png = dependency('libpng', version: '>=1.6.34', required: get_option('png'),
@@ -1855,6 +1863,7 @@ if glusterfs.found()
   config_host_data.set('CONFIG_GLUSTERFS_IOCB_HAS_STAT', glusterfs_iocb_has_stat)
 endif
 config_host_data.set('CONFIG_GTK', gtk.found())
+config_host_data.set('CONFIG_ARCAN', arcan.found())
 config_host_data.set('CONFIG_VTE', vte.found())
 config_host_data.set('CONFIG_GTK_CLIPBOARD', have_gtk_clipboard)
 config_host_data.set('CONFIG_LIBATTR', have_old_libattr)
@@ -3937,7 +3946,7 @@ if targetos == 'linux'
   summary_info += {'ALSA support':    alsa}
   summary_info += {'PulseAudio support': pulse}
 endif
-summary_info += {'Arcan support':     arcan.found()}
+summary_info += {'Arcan support':     arcan}
 summary_info += {'JACK support':      jack}
 summary_info += {'brlapi support':    brlapi}
 summary_info += {'vde support':       vde}

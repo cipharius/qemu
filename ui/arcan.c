@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 #include "qemu/osdep.h"
-#include "qemu-common.h"
 #include "qemu/cutils.h"
 #include "qemu/config-file.h"
 #include "qemu/typedefs.h"
@@ -82,6 +81,7 @@ struct dpy_state {
     int mx, my;
 
     DisplayChangeListener dcl;
+    DisplayGLCtx dgc;
 };
 
 #ifndef ARCAN_DISPLAY_LIMIT
@@ -288,10 +288,10 @@ static void arcan_update(DisplayChangeListener *dcl,
 
 #ifdef CONFIG_OPENGL
 static unsigned context_mask;
-static QEMUGLContext arcan_egl_create_context(DisplayChangeListener *dcl,
-                                                         QEMUGLParams *params)
+static QEMUGLContext arcan_egl_create_context(DisplayGLCtx *dgc,
+                                              QEMUGLParams *params)
 {
-    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
+    struct dpy_state *dst = container_of(dgc, struct dpy_state, dgc);
     struct arcan_shmifext_setup defs = arcan_shmifext_defaults(&dst->dpy);
     defs.major = params->major_ver;
     defs.minor = params->minor_ver;
@@ -332,17 +332,17 @@ static void arcan_gl_scanout_texture(DisplayChangeListener *dcl,
         arcan_shmifext_signal(dpy, 0, SHMIF_SIGVID, tex_id);
 }
 
-static void arcan_egl_destroy_context(DisplayChangeListener *dcl, QEMUGLContext ctx)
+static void arcan_egl_destroy_context(DisplayGLCtx *dgc, QEMUGLContext ctx)
 {
-    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
+    struct dpy_state *dst = container_of(dgc, struct dpy_state, dgc);
     arcan_shmifext_drop_context(&dst->dpy);
     context_mask &= ~(1 << (uintptr_t)ctx);
 }
 
-static int arcan_egl_make_context_current(DisplayChangeListener *dcl,
-                                 QEMUGLContext ctx)
+static int arcan_egl_make_context_current(DisplayGLCtx *dgc,
+                                          QEMUGLContext ctx)
 {
-    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
+    struct dpy_state *dst = container_of(dgc, struct dpy_state, dgc);
     return arcan_shmifext_make_current(&dst->dpy);
 }
 
@@ -668,10 +668,6 @@ static const DisplayChangeListenerOps dcl_ops = {
  */
 #ifdef CONFIG_OPENGL
 		,
-    .dpy_gl_ctx_make_current = arcan_egl_make_context_current,
-/*    .dpy_gl_ctx_get_current  = arcan_egl_get_current_context, */
-    .dpy_gl_ctx_create   = arcan_egl_create_context,
-    .dpy_gl_ctx_destroy  = arcan_egl_destroy_context,
     .dpy_gl_scanout_texture = arcan_gl_scanout_texture,
     .dpy_gl_scanout_disable = arcan_gl_scanout_disable,
     .dpy_gl_update       = arcan_gl_update,
@@ -684,6 +680,15 @@ static const DisplayChangeListenerOps dcl_ops = {
  *  .dpy_gl_cursor_dmabuf,
  *  .dpy_gl_cursor_position
  */
+#endif
+};
+
+static const DisplayGLCtxOps dgc_ops = {
+#ifdef CONFIG_OPENGL
+    .dpy_gl_ctx_make_current = arcan_egl_make_context_current,
+/*    .dpy_gl_ctx_get_current  = arcan_egl_get_current_context, */
+    .dpy_gl_ctx_create   = arcan_egl_create_context,
+    .dpy_gl_ctx_destroy  = arcan_egl_destroy_context,
 #endif
 };
 
@@ -819,7 +824,11 @@ static void arcan_display_init(DisplayState *ds, DisplayOptions *o)
         }
 #endif
         disp->dcl.ops = &dcl_ops;
+        disp->dgc.ops = &dgc_ops;
 
+        if (display_opengl) {
+          qemu_console_set_display_gl_ctx(cons, &disp->dgc);
+        }
 /* this will likely invalidate prim, don't use it after this point */
         register_displaychangelistener(&disp->dcl);
     }

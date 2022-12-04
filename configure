@@ -896,10 +896,6 @@ for opt do
   ;;
   --enable-jemalloc) meson_option_parse --enable-malloc=jemalloc jemalloc
   ;;
-  --disable-arcan) arcan="no"
-  ;;
-  --enable-arcan) arcan="yes"
-  ;;
   # everything else has the same name in configure and meson
   --*) meson_option_parse "$opt" "$optarg"
   ;;

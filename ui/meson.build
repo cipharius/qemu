@@ -121,7 +121,7 @@ if sdl.found()
   ui_modules += {'sdl' : sdl_ss}
 endif
 
-if config_host.has_key('CONFIG_ARCAN')
+if arcan.found()
   arcan_ss = ss.source_set()
   arcan_ss.add(arcan, pixman, files(
     'arcan.c'
