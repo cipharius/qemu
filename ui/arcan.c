@@ -62,9 +62,14 @@ enum blitmode {
 #endif
 };
 
+enum segreqid {
+    SEG_HWCURSOR = 0xaa,
+};
+
 struct dpy_state {
 /* for drawing */
     struct arcan_shmif_cont dpy;
+    struct arcan_shmif_cont cursor;
     enum blitmode mode;
     DisplaySurface *surface;
     struct PixelFormat fmt;
@@ -714,9 +719,25 @@ static void system_event(DisplayChangeListener *dcl, struct dpy_state *dpy,
         arcan_shmif_signal(acon, SHMIF_SIGVID);
     break;
     case TARGET_COMMAND_NEWSEGMENT:
-/* Check ID for requested display or special (clipboard, mouse cursor),
- * if it's an output segment, set it in the primary slot so we can use
- * it as an audio source and as an emulated video capture device */
+        if (iev->ioevs[3].iv == SEG_HWCURSOR) {
+            dpy->cursor = arcan_shmif_acquire(acon, NULL, SEGID_CURSOR,
+                SHMIF_DISABLE_GUARD | SHMIF_NOREGISTER);
+
+            for (int i=0; i<dpy->cursor.w * dpy->cursor.h; i++) {
+                dpy->cursor.vidp[i] = SHMIF_RGBA(0, 0, 0, 0);
+            }
+
+            dpy->cursor.dirty.x1 = 0;
+            dpy->cursor.dirty.y1 = 0;
+            dpy->cursor.dirty.x2 = dpy->cursor.w;
+            dpy->cursor.dirty.y2 = dpy->cursor.h;
+            arcan_shmif_signal(&dpy->cursor, SHMIF_SIGVID);
+        }
+    break;
+    case TARGET_COMMAND_REQFAIL:
+        if (iev->ioevs[0].iv == SEG_HWCURSOR) {
+          dpy->cursor = (const struct arcan_shmif_cont){ 0 };
+        }
     break;
     case TARGET_COMMAND_PAUSE:
         if (runstate_is_running()){}
@@ -850,21 +871,64 @@ static bool arcan_check_format(DisplayChangeListener *dcl,
 static void arcan_mouse_warp(DisplayChangeListener *dcl,
                            int x, int y, int on)
 {
-/* FIXME: if we have a dedicated cursor segment, run the events on
-    arcan_shmif_enqueue(dpy, &(arcan_event){
-        .category = EVENT_EXTERNAL,
-        .ext.kind = ARCAN_EVENT(CURSORINPUT),
-        .ext.cursor.id = 0,
-        .ext.cursor.x = x,
-        .ext.cursor.y = y
-    });
-*/
-/* FIXME: cursorhint */
+    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
+
+    if (dst->cursor.addr) {
+        arcan_shmif_enqueue(&dst->cursor, &(arcan_event){
+            .category = EVENT_EXTERNAL,
+            .ext.kind = ARCAN_EVENT(VIEWPORT),
+            .ext.viewport.parent = dst->dpy.segment_token,
+            .ext.viewport.x = x,
+            .ext.viewport.y = y,
+        });
+    } else {
+        struct arcan_event ev = {
+            .category = EVENT_EXTERNAL,
+            .ext.kind = ARCAN_EVENT(CURSORHINT),
+        };
+
+        snprintf((char*)&ev.ext.message.data, sizeof(ev.ext.message.data),
+            "warp:%d:%d", x, y);
+
+        arcan_shmif_enqueue(&dst->dpy, &ev);
+    }
 }
 
 static void arcan_mouse_define(DisplayChangeListener *dcl,
                                QEMUCursor *c)
 {
+    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
+
+    if (!dst->cursor.addr)
+        return;
+
+    if (dst->cursor.w != c->width || dst->cursor.h != c->height) {
+        arcan_shmif_resize(&dst->cursor, c->width, c->height);
+    }
+
+    memcpy(dst->cursor.vidp, c->data, c->width * c->height);
+
+    dst->cursor.dirty.x1 = 0;
+    dst->cursor.dirty.y1 = 0;
+    dst->cursor.dirty.x2 = dst->cursor.w;
+    dst->cursor.dirty.y2 = dst->cursor.h;
+    arcan_shmif_signal(&dst->cursor, SHMIF_SIGVID);
+
+    arcan_shmif_enqueue(&dst->cursor, &(arcan_event){
+        .category = EVENT_EXTERNAL,
+        .ext.kind = ARCAN_EVENT(VIEWPORT),
+        .ext.viewport.w = c->width,
+        .ext.viewport.h = c->height,
+    });
+
+    struct arcan_event ev = {
+        .category = EVENT_EXTERNAL,
+        .ext.kind = ARCAN_EVENT(CURSORHINT),
+    };
+    snprintf((char*)&ev.ext.message.data, sizeof(ev.ext.message.data),
+        "hidden-hot:%d:%d", c->hot_x, c->hot_y);
+
+    arcan_shmif_enqueue(&dst->cursor, &ev);
 }
 
 static void arcan_kbd_leds(void *opaque, int state)
@@ -1007,13 +1071,15 @@ static void arcan_display_init(DisplayState *ds, DisplayOptions *o)
  */
 
 /* FIXME:
- * we can also send a custom cursor segment request and attach that to the
- * display structure in order for the pointer to be correct
+ * If cursor segment is denied the cursor will not get rendered. Either
+ * notify qemu that the hwcursor rendering is not supported or implement
+ * overlay cursor rendering
  */
     arcan_shmif_enqueue(&prim, &(arcan_event){
         .category = EVENT_EXTERNAL,
-        .ext.kind = ARCAN_EVENT(CURSORHINT),
-        .ext.message.data = "hidden"
+        .ext.kind = ARCAN_EVENT(SEGREQ),
+        .ext.segreq.kind = SEGID_CURSOR,
+        .ext.segreq.id = SEG_HWCURSOR,
     });
 
     size_t nd;
