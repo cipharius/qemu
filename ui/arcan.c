@@ -659,14 +659,29 @@ static bool input_event(DisplayChangeListener *dcl, struct dpy_state* dpy,
         return true;
     }
     else if (iev->datatype == EVENT_IDATATYPE_ANALOG){
-        int did = iev->subid == 0 ? INPUT_AXIS_X : INPUT_AXIS_Y;
-        int av = iev->input.analog.axisval[0];
-        if (iev->input.analog.gotrel){
-            qemu_input_queue_rel(dcl->con, did, av);
+        if (iev->subid == 0 || iev->subid == 1) {
+            int dir = iev->subid == 0 ? INPUT_AXIS_X : INPUT_AXIS_Y;
+            int av = iev->input.analog.axisval[0];
+
+            if (iev->input.analog.gotrel) {
+                qemu_input_queue_rel(dcl->con, dir, av);
+            } else {
+                int max = iev->subid == 0 ? con->w : con->h;
+                qemu_input_queue_abs(dcl->con, dir, av, 0, max);
+            }
+        } else if (iev->subid == 2) {
+            int avx = iev->input.analog.axisval[0];
+            int avy = iev->input.analog.axisval[2];
+
+            if (iev->input.analog.gotrel) {
+                qemu_input_queue_rel(dcl->con, INPUT_AXIS_X, avx);
+                qemu_input_queue_rel(dcl->con, INPUT_AXIS_Y, avy);
+            } else {
+                qemu_input_queue_abs(dcl->con, INPUT_AXIS_X, avx, 0, con->w);
+                qemu_input_queue_abs(dcl->con, INPUT_AXIS_Y, avy, 0, con->h);
+            }
         }
-        else
-            qemu_input_queue_abs(dcl->con, did, av, 0,
-                                 iev->subid==0 ? con->w : con->h);
+
         return true;
     }
 /* open question: how to map tablet input, IDATATYPE_TOUCH and other
