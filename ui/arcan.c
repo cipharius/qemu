@@ -497,7 +497,7 @@ static void arcan_update(DisplayChangeListener *dcl,
             uint8_t g = sp[cx*4+1];
             uint8_t b = sp[cx*4+0];
             uint8_t a = 255;
-            dp[cx] = SHMIF_RGBA(r, g, b, a);
+            dp[x + cx] = SHMIF_RGBA(r, g, b, a);
         }
         sp += stride;
         dp += dpy->pitch;
