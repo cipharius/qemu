@@ -43,7 +43,7 @@
  * [ ] Text console to TUI
  * [ ] Plugging in multiple displays as secondary segments
  * [ ] Resize propagation [ dpy_set_ui_info() ]
- * [ ] Hardware mouse cursor path [ SEGREQ(CURSOR) ]
+ * [x] Hardware mouse cursor path [ SEGREQ(CURSOR) ]
  * [ ] SHMIF proxying into guest [ handover alloc, semaphores being a real PITA ]
  * [ ] DEBUG segment handler for memory inspection
  * [ ] SEGID_ICON request and if OK, raster icons/qemu.svg into it
