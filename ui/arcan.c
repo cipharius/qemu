@@ -628,14 +628,6 @@ static bool input_event(DisplayChangeListener *dcl, struct dpy_state* dpy,
         iev->devkind != EVENT_IDEVKIND_MOUSE)
         return false;
 
-/* FIXME: this has changed - if we can know it is a linux keycode etc. there
- * is automatic translation / interpreation / forwarding now through the use
- * of qemu_input_linux_to_keycode and then qemu_input_key_number_to_qcode.
- *
- * Due to changes practically imposed by the wayland bridge, we can assume
- * that even for SDL2 (the other possible source) the subid will be a linux
- * keycode. The situation is slightly different on BSDs.
- */
     if (iev->datatype == EVENT_IDATATYPE_TRANSLATED){
         dpy->kbd_statetbl[iev->input.translated.keysym] =
                                                 iev->input.translated.active;
