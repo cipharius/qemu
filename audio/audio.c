@@ -2059,6 +2059,7 @@ void audio_create_pdos(Audiodev *dev)
         CASE(SNDIO, sndio, );
         CASE(SPICE, spice, );
         CASE(WAV, wav, );
+        CASE(ARCAN, arcan, );
 
     case AUDIODEV_DRIVER__MAX:
         abort();

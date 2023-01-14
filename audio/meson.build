@@ -18,7 +18,8 @@ foreach m : [
   ['sdl', sdl, files('sdlaudio.c')],
   ['jack', jack, files('jackaudio.c')],
   ['sndio', sndio, files('sndioaudio.c')],
-  ['spice', spice, files('spiceaudio.c')]
+  ['spice', spice, files('spiceaudio.c')],
+  ['arcan', arcan, files('arcanaudio.c')]
 ]
   if m[1].found()
     module_ss = ss.source_set()

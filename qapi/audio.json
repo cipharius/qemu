@@ -409,7 +409,7 @@
 ##
 { 'enum': 'AudiodevDriver',
   'data': [ 'none', 'alsa', 'coreaudio', 'dbus', 'dsound', 'jack', 'oss', 'pa',
-            'sdl', 'sndio', 'spice', 'wav' ] }
+            'sdl', 'sndio', 'spice', 'wav', 'arcan' ] }
 
 ##
 # @Audiodev:
@@ -442,4 +442,5 @@
     'sdl':       'AudiodevSdlOptions',
     'sndio':     'AudiodevSndioOptions',
     'spice':     'AudiodevGenericOptions',
-    'wav':       'AudiodevWavOptions' } }
+    'wav':       'AudiodevWavOptions',
+    'arcan':     'AudiodevGenericOptions' } }

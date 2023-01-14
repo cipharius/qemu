@@ -349,6 +349,8 @@ AudiodevPerDirectionOptions *glue(audio_get_pdo_, TYPE)(Audiodev *dev)
         return dev->u.spice.TYPE;
     case AUDIODEV_DRIVER_WAV:
         return dev->u.wav.TYPE;
+    case AUDIODEV_DRIVER_ARCAN:
+        return dev->u.arcan.TYPE;
 
     case AUDIODEV_DRIVER__MAX:
         break;

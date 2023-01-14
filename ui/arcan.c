@@ -1063,7 +1063,6 @@ static void arcan_display_init(DisplayState *ds, DisplayOptions *o)
                                                     SHMIF_ACQUIRE_FATALFAIL,
                                                     &args);
     prim.hints = SHMIF_RHINT_SUBREGION;
-    arcan_shmif_setprimary(SHMIF_INPUT, &prim);
 
 /* FIXME:
  * there is an embeddable io/icons/qemu.svg that we could translate / draw
@@ -1159,6 +1158,23 @@ static void arcan_display_init(DisplayState *ds, DisplayOptions *o)
     qemu_add_vm_change_state_handler(arcan_vmstate_chg, NULL);
 
     update_display_titles();
+
+    int result = arcan_shmif_resize_ext(&arcan_ctx.dpy[0].dpy,
+                           arcan_ctx.dpy[0].dpy.w,
+                           arcan_ctx.dpy[0].dpy.h,
+                           (struct shmif_resize_ext){
+                               .abuf_sz = 4 * 4096,
+                               .abuf_cnt = -1,
+                               .samplerate = ARCAN_SHMIF_SAMPLERATE
+                           });
+
+    if (result) {
+        printf("Succesful resize\n");
+    } else {
+        printf("Failed resize\n");
+    }
+
+    arcan_shmif_setprimary(SHMIF_INPUT, &arcan_ctx.dpy[0].dpy);
 }
 
 static QemuDisplay qemu_display_arcan = {
