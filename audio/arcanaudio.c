@@ -57,7 +57,7 @@ static size_t arcan_buffer_get_free(HWVoiceOut *hw)
     struct arcan_shmif_cont* prim = arcan_shmif_primary(SHMIF_INPUT);
     if (!prim) return 0;
 
-    return prim->abufcount - prim->abufpos;
+    return prim->abufsize - prim->abufused;
 }
 
 static void* arcan_get_buffer_out(HWVoiceOut *hw, size_t *size)
@@ -65,9 +65,9 @@ static void* arcan_get_buffer_out(HWVoiceOut *hw, size_t *size)
     struct arcan_shmif_cont* prim = arcan_shmif_primary(SHMIF_INPUT);
     if (!prim) return 0;
 
-    *size = prim->abufcount;
+    *size = prim->abufsize - prim->abufused;
 
-    return prim->audp;
+    return prim->audp + prim->abufused;
 }
 
 static size_t arcan_put_buffer_out(HWVoiceOut *hw, void *buf, size_t size)
@@ -75,19 +75,17 @@ static size_t arcan_put_buffer_out(HWVoiceOut *hw, void *buf, size_t size)
     struct arcan_shmif_cont* prim = arcan_shmif_primary(SHMIF_INPUT);
     if (!prim) return 0;
 
-    shmif_asample* abuf = buf;
+    uint8_t* abuf = buf;
 
-    size_t nfree = prim->abufcount - prim->abufpos;
-    size_t nsamples = (size < nfree) ? size : nfree;
-    for (size_t i=0; i<nsamples; i++) {
-        prim->audp[prim->abufpos++] = abuf[i];
+    for (size_t i=0; i<size; i++) {
+        prim->audb[prim->abufused++] = abuf[i];
     }
 
-    if (prim->abufpos == prim->abufcount) {
+    if (prim->abufused >= prim->abufsize) {
         arcan_shmif_signal(prim, SHMIF_SIGAUD | SHMIF_SIGBLK_NONE);
     }
 
-    return nsamples;
+    return size;
 }
 
 static size_t arcan_write(HWVoiceOut *hw, void *buf, size_t size)
@@ -118,13 +116,13 @@ static int arcan_init_out(HWVoiceOut *hw, struct audsettings *as,
 {
     struct audsettings arcan_as;
 
-    arcan_as.freq = ARCAN_SHMIF_SAMPLERATE;
+    arcan_as.freq = 44100;
     arcan_as.nchannels = ARCAN_SHMIF_ACHANNELS;
     arcan_as.fmt = AUDIO_FORMAT_S16;
     arcan_as.endianness = 0;
 
     audio_pcm_init_info(&hw->info, &arcan_as);
-    hw->samples = 4096;
+    hw->samples = 1024;
 
     return 0;
 }

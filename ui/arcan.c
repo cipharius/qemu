@@ -103,13 +103,15 @@ static struct {
     int ledstate;
     bool gl;
     size_t abuf_sz;
+    size_t samplerate;
     size_t n_dpy;
 #ifdef CONFIG_OPENGL
 #endif
 } arcan_ctx = {
     .vbufc = 1,
     .abufc = 8,
-    .abuf_sz = 4096
+    .abuf_sz = 4096,
+    .samplerate = 44100
 };
 
 enum sdl12 {
@@ -833,7 +835,8 @@ static void arcan_switch(DisplayChangeListener *dcl,
         struct shmif_resize_ext ext = {
             .vbuf_cnt = arcan_ctx.vbufc,
             .abuf_cnt = arcan_ctx.abufc,
-            .abuf_sz = arcan_ctx.abuf_sz
+            .abuf_sz = arcan_ctx.abuf_sz,
+            .samplerate = arcan_ctx.samplerate,
         };
 
         arcan_shmif_lock(&dst->dpy);
@@ -1158,21 +1161,6 @@ static void arcan_display_init(DisplayState *ds, DisplayOptions *o)
     qemu_add_vm_change_state_handler(arcan_vmstate_chg, NULL);
 
     update_display_titles();
-
-    int result = arcan_shmif_resize_ext(&arcan_ctx.dpy[0].dpy,
-                           arcan_ctx.dpy[0].dpy.w,
-                           arcan_ctx.dpy[0].dpy.h,
-                           (struct shmif_resize_ext){
-                               .abuf_sz = 4 * 4096,
-                               .abuf_cnt = -1,
-                               .samplerate = ARCAN_SHMIF_SAMPLERATE
-                           });
-
-    if (result) {
-        printf("Succesful resize\n");
-    } else {
-        printf("Failed resize\n");
-    }
 
     arcan_shmif_setprimary(SHMIF_INPUT, &arcan_ctx.dpy[0].dpy);
 }
