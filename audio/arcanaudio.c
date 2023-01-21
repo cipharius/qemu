@@ -42,69 +42,36 @@
 
 typedef struct ArcanVoiceOut {
     HWVoiceOut hw;
-    int exit;
-    int initialized;
 } ArcanVoiceOut;
 
 typedef struct ArcanVoiceIn {
     HWVoiceIn hw;
-    int exit;
-    int initialized;
 } ArcanVoiceIn;
-
-static size_t arcan_buffer_get_free(HWVoiceOut *hw)
-{
-    struct arcan_shmif_cont* prim = arcan_shmif_primary(SHMIF_INPUT);
-    if (!prim) return 0;
-
-    return prim->abufsize - prim->abufused;
-}
-
-static void* arcan_get_buffer_out(HWVoiceOut *hw, size_t *size)
-{
-    struct arcan_shmif_cont* prim = arcan_shmif_primary(SHMIF_INPUT);
-    if (!prim) return 0;
-
-    *size = prim->abufsize - prim->abufused;
-
-    return prim->audp + prim->abufused;
-}
-
-static size_t arcan_put_buffer_out(HWVoiceOut *hw, void *buf, size_t size)
-{
-    struct arcan_shmif_cont* prim = arcan_shmif_primary(SHMIF_INPUT);
-    if (!prim) return 0;
-
-    uint8_t* abuf = buf;
-
-    for (size_t i=0; i<size; i++) {
-        prim->audb[prim->abufused++] = abuf[i];
-    }
-
-    if (prim->abufused >= prim->abufsize) {
-        arcan_shmif_signal(prim, SHMIF_SIGAUD | SHMIF_SIGBLK_NONE);
-    }
-
-    return size;
-}
 
 static size_t arcan_write(HWVoiceOut *hw, void *buf, size_t size)
 {
-    return 0;
+    struct arcan_shmif_cont* prim = arcan_shmif_primary(SHMIF_INPUT);
+    if (!prim) return size;
+
+    size_t bytes = prim->abufsize - prim->abufused;
+
+    if (bytes > size) {
+        bytes = size;
+    }
+
+    uint8_t* audb = buf;
+    for (size_t i = 0; i < bytes; i++) {
+        prim->audb[prim->abufused++] = audb[i];
+    }
+
+    arcan_shmif_signal(prim, SHMIF_SIGAUD | SHMIF_SIGBLK_FORCE);
+
+    return bytes;
 }
 
 static size_t arcan_read(HWVoiceIn *hw, void *buf, size_t size)
 {
     return size;
-}
-
-static void* arcan_get_buffer_in(HWVoiceIn *hw, size_t *size)
-{
-    return NULL;
-}
-
-static void arcan_put_buffer_in(HWVoiceIn *hw, void *buf, size_t size)
-{
 }
 
 static void arcan_fini_out(HWVoiceOut *hw)
@@ -116,7 +83,7 @@ static int arcan_init_out(HWVoiceOut *hw, struct audsettings *as,
 {
     struct audsettings arcan_as;
 
-    arcan_as.freq = 44100;
+    arcan_as.freq = ARCAN_SHMIF_SAMPLERATE;
     arcan_as.nchannels = ARCAN_SHMIF_ACHANNELS;
     arcan_as.fmt = AUDIO_FORMAT_S16;
     arcan_as.endianness = 0;
@@ -157,15 +124,13 @@ static struct audio_pcm_ops arcan_pcm_ops = {
     .init_out = arcan_init_out,
     .fini_out = arcan_fini_out,
     .write    = arcan_write,
-    .buffer_get_free = arcan_buffer_get_free,
-    .get_buffer_out = arcan_get_buffer_out,
-    .put_buffer_out = arcan_put_buffer_out,
+    .buffer_get_free = audio_generic_buffer_get_free,
+    .run_buffer_out = audio_generic_run_buffer_out,
     .enable_out = arcan_enable_out,
+
     .init_in = arcan_init_in,
     .fini_in = arcan_fini_in,
     .read = arcan_read,
-    .get_buffer_in = arcan_get_buffer_in,
-    .put_buffer_in = arcan_put_buffer_in,
     .enable_in = arcan_enable_in,
 };
 

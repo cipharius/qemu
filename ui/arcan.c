@@ -103,15 +103,13 @@ static struct {
     int ledstate;
     bool gl;
     size_t abuf_sz;
-    size_t samplerate;
     size_t n_dpy;
 #ifdef CONFIG_OPENGL
 #endif
 } arcan_ctx = {
     .vbufc = 1,
-    .abufc = 8,
-    .abuf_sz = 4096,
-    .samplerate = 44100
+    .abufc = 4,
+    .abuf_sz = 4 * 1024,
 };
 
 enum sdl12 {
@@ -836,7 +834,6 @@ static void arcan_switch(DisplayChangeListener *dcl,
             .vbuf_cnt = arcan_ctx.vbufc,
             .abuf_cnt = arcan_ctx.abufc,
             .abuf_sz = arcan_ctx.abuf_sz,
-            .samplerate = arcan_ctx.samplerate,
         };
 
         arcan_shmif_lock(&dst->dpy);
