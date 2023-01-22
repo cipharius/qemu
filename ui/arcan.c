@@ -38,7 +38,6 @@
  *     build from audio/sdlaudio.c as they are mostly similar
  * [ ] VirGL / dma-buf style forwarding, see gtk-egl.c
  * [ ] Map virtio-VGA framebuffer directly into SHMIF segment if formats match (big saving)
- * [ ] (Linux host) Switch input from SDL2+conv to subid-as-linux-keycode
  * [ ] State controls (load / save)
  * [ ] Text console to TUI
  * [ ] Plugging in multiple displays as secondary segments
