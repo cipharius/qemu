@@ -1977,7 +1977,7 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
     "            [,show-menubar=on|off]\n"
 #endif
 #if defined(CONFIG_ARCAN)
-    "-display arcan\n"
+    "-display arcan[,gl=on|core|es|off]\n"
 #endif
 #if defined(CONFIG_VNC)
     "-display vnc=<display>[,<optargs>]\n"

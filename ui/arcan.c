@@ -69,6 +69,7 @@ struct dpy_state {
 /* for drawing */
     struct arcan_shmif_cont dpy;
     struct arcan_shmif_cont cursor;
+    QemuDmaBuf *guest_dmabuf;
     enum blitmode mode;
     DisplaySurface *surface;
     struct PixelFormat fmt;
@@ -529,7 +530,7 @@ static void arcan_update(DisplayChangeListener *dcl,
 }
 
 #ifdef CONFIG_OPENGL
-static unsigned context_mask;
+static unsigned context_mask = 0;
 static QEMUGLContext arcan_egl_create_context(DisplayGLCtx *dgc,
                                               QEMUGLParams *params)
 {
@@ -538,23 +539,32 @@ static QEMUGLContext arcan_egl_create_context(DisplayGLCtx *dgc,
     defs.major = params->major_ver;
     defs.minor = params->minor_ver;
     defs.builtin_fbo = false;
-/* FIXME: populate defs from "qemu_egl_config" */
+
+    eglGetConfigAttrib(qemu_egl_display, qemu_egl_config, EGL_RED_SIZE, (EGLint*)&defs.red);
+    eglGetConfigAttrib(qemu_egl_display, qemu_egl_config, EGL_GREEN_SIZE, (EGLint*)&defs.green);
+    eglGetConfigAttrib(qemu_egl_display, qemu_egl_config, EGL_BLUE_SIZE, (EGLint*)&defs.blue);
+    eglGetConfigAttrib(qemu_egl_display, qemu_egl_config, EGL_ALPHA_SIZE, (EGLint*)&defs.alpha);
+    eglGetConfigAttrib(qemu_egl_display, qemu_egl_config, EGL_DEPTH_SIZE, (EGLint*)&defs.depth);
+    eglGetConfigAttrib(qemu_egl_display, qemu_egl_config, EGL_STENCIL_SIZE, (EGLint*)&defs.stencil);
+
     uintptr_t i = 0;
-    for (i = 0; i < 64; i++)
+    for (i = 0; i < 64; i++) {
       if (!(context_mask & (1 << i))){
-        context_mask = 1 << i;
+        context_mask |= 1 << i;
         break;
       }
+    }
+
     arcan_shmifext_setup(&dst->dpy, defs);
 
     return (QEMUGLContext) i;
 }
 
-static void arcan_gl_scanout_disable(DisplayChangeListener *dcl)
+static void arcan_egl_scanout_disable(DisplayChangeListener *dcl)
 {
 }
 
-static void arcan_gl_scanout_texture(DisplayChangeListener *dcl,
+static void arcan_egl_scanout_texture(DisplayChangeListener *dcl,
                                   uint32_t tex_id,
                                   bool y_0_top,
                                   uint32_t backing_width,
@@ -588,28 +598,32 @@ static int arcan_egl_make_context_current(DisplayGLCtx *dgc,
     return arcan_shmifext_make_current(&dst->dpy);
 }
 
-/*
- * Because https://github.com/qemu/qemu/commit/c110d949b8166a633179edcf3390a42673ac843c
- *
-static QEMUGLContext arcan_egl_get_current_context(DisplayChangeListener *dcl)
-{
-    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
-    uintptr_t context = 0;
-    arcan_shmifext_egl_meta(&dst->dpy, NULL, NULL, &context);
-    return (QEMUGLContext) context;
-}
- */
-
-static void arcan_gl_update(DisplayChangeListener* dcl,
+static void arcan_egl_update(DisplayChangeListener* dcl,
                                 uint32_t x, uint32_t y,
                                 uint32_t w, uint32_t h)
 {
- /*
-  * struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
+    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
     struct arcan_shmif_cont *dpy = &dst->dpy;
-  */
-/* sdl just goes BindFramebuffer, GetWindowSize, Viewport, Blit, Bind, Swap
- * qemu does qemu_spice_glblock, spice_qxl_gl_draw_async */
+
+    QemuDmaBuf *dmabuf = dst->guest_dmabuf;
+    arcan_shmif_signalhandle(dpy, SHMIF_SIGVID, dmabuf->fd, dmabuf->stride, dmabuf->fourcc);
+}
+
+static void arcan_egl_scanout_dmabuf(DisplayChangeListener *dcl, QemuDmaBuf *dmabuf)
+{
+    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
+    dst->guest_dmabuf = dmabuf;
+}
+
+static void arcan_egl_release_dmabuf(DisplayChangeListener *dcl, QemuDmaBuf *dmabuf)
+{
+    struct dpy_state *dst = container_of(dcl, struct dpy_state, dcl);
+
+    if (dst->guest_dmabuf == dmabuf) {
+        dst->guest_dmabuf = NULL;
+    }
+
+    egl_dmabuf_release_texture(dmabuf);
 }
 #endif
 
@@ -975,26 +989,30 @@ static const DisplayChangeListenerOps dcl_ops = {
     .dpy_text_cursor      = arcan_text_cursor
  */
 #ifdef CONFIG_OPENGL
-		,
-    .dpy_gl_scanout_texture = arcan_gl_scanout_texture,
-    .dpy_gl_scanout_disable = arcan_gl_scanout_disable,
-    .dpy_gl_update       = arcan_gl_update,
+    ,
+    .dpy_gl_scanout_texture = arcan_egl_scanout_texture,
+    .dpy_gl_scanout_disable = arcan_egl_scanout_disable,
+    .dpy_gl_update          = arcan_egl_update,
+    .dpy_gl_scanout_dmabuf  = arcan_egl_scanout_dmabuf,
+    .dpy_gl_release_dmabuf  = arcan_egl_release_dmabuf,
 /* new ones:
- *  .dpy_gl_cursor_position,
- *  .dpy_gl_release_dmabuf,
- *  .dpy_gl_update,
- *  .dpy_gl_has_dmabuf,
- *  .dpy_gl_scanout_dmabuf,
- *  .dpy_gl_cursor_dmabuf,
- *  .dpy_gl_cursor_position
+   * dpy_gl_cursor_position
+   * dpy_gl_cursor_dmabuf
  */
 #endif
 };
 
+#ifdef CONFIG_OPENGL
+static bool arcan_egl_is_compatible_dcl(DisplayGLCtx *dgc, DisplayChangeListener *dcl)
+{
+    return dcl->ops == &dcl_ops;
+}
+#endif
+
 static const DisplayGLCtxOps dgc_ops = {
 #ifdef CONFIG_OPENGL
     .dpy_gl_ctx_make_current = arcan_egl_make_context_current,
-/*    .dpy_gl_ctx_get_current  = arcan_egl_get_current_context, */
+    .dpy_gl_ctx_is_compatible_dcl = arcan_egl_is_compatible_dcl,
     .dpy_gl_ctx_create   = arcan_egl_create_context,
     .dpy_gl_ctx_destroy  = arcan_egl_destroy_context,
 #endif
